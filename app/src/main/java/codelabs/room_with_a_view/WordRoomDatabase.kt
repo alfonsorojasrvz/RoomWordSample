@@ -4,13 +4,41 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 // Annotates class to be a Room Database with a table (entity) of the Word class
 @Database(entities = arrayOf(Word::class), version = 1, exportSchema = false)
 public abstract class WordRoomDatabase : RoomDatabase() {
 
     abstract fun wordDao(): WordDao
+    private class WordDatabaseCallback(
+        private val scope: CoroutineScope
+    ) : RoomDatabase.Callback() {
+
+        override fun onCreate(db: SupportSQLiteDatabase) {
+            super.onCreate(db)
+            INSTANCE?.let { database ->
+                scope.launch {
+                    var wordDao = database.wordDao()
+
+                    // Delete all content here.
+                    wordDao.deleteAll()
+
+                    // Add sample words.
+                    var word = Word("Hello")
+                    wordDao.insertWord(word)
+                    word = Word("World!")
+                    wordDao.insertWord(word)
+
+
+                    word = Word("TODO!")
+                    wordDao.insertWord(word)
+                }
+            }
+        }
+    }
 
     companion object {
         // Singleton prevents multiple instances of database opening at the
@@ -26,7 +54,9 @@ public abstract class WordRoomDatabase : RoomDatabase() {
                     context.applicationContext,
                     WordRoomDatabase::class.java,
                     "word_database"
-                ).build()
+                )
+                    .addCallback(WordDatabaseCallback(scope))
+                    .build()
                 INSTANCE = instance
                 // return instance
                 instance
